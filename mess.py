@@ -1,23 +1,25 @@
 import random
 
+import pandas as pd
 import topicwizard
 import umap
 from embetter.text import SentenceEncoder
-from sklearn.base import TransformerMixin
-from sklearn.cluster import KMeans
+from sklearn.cluster import DBSCAN
 from sklearn.decomposition import FastICA
+from sklearn.mixture import BayesianGaussianMixture
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import LabelBinarizer, MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler
 
 from blackbert.blackbox import BlackboxTopicModel
-from blackbert.cluster.dbscan import DBSCANTransformer
+from blackbert.cluster import ClusterTransformer
 from blackbert.feature_extraction.text import LeakyCountVectorizer
 from blackbert.importance_estimation.ctfidf import CTFIDFEstimator
 from blackbert.importance_estimation.trees import RandomForestEstimator
+from blackbert.mixture import MixtureTransformer
 
-with open("processed_sample.txt") as f:
-    texts = list(f)
-    texts = random.sample(texts, 4000)
+data = pd.read_csv("realdonaldtrump.csv")
+texts = data.content.tolist()
+texts = random.sample(texts, 6000)
 
 ica_model = make_pipeline(
     SentenceEncoder("all-MiniLM-L6-v2"),
@@ -25,22 +27,35 @@ ica_model = make_pipeline(
     MinMaxScaler(),
 )
 
-
 dbscan_model = make_pipeline(
     SentenceEncoder("all-MiniLM-L6-v2"),
     umap.UMAP(n_components=2),
-    DBSCANTransformer(),
+    ClusterTransformer(DBSCAN()),
 )
-vectorizer = LeakyCountVectorizer(stop_words="english", min_df=5, max_df=0.5)
+
+mixture_model = make_pipeline(
+    SentenceEncoder("all-MiniLM-L6-v2"),
+    umap.UMAP(n_components=5),
+    MixtureTransformer(
+        BayesianGaussianMixture(
+            n_components=20, weight_concentration_prior=0.001
+        )
+    ),
+)
+
+vectorizer = LeakyCountVectorizer(stop_words="english", min_df=5, max_df=0.3)
 topic_model = BlackboxTopicModel(
-    model=dbscan_model,
-    estimator=CTFIDFEstimator(),
+    model=mixture_model,
+    estimator=RandomForestEstimator(),
 )
 pipeline = make_pipeline(vectorizer, topic_model)
+
 pipeline.fit(texts)
 
-topic_model.components_.shape
-
-topic_model.components_
-
-topicwizard.visualize(pipeline=pipeline, corpus=random.sample(texts, 500))
+topicwizard.visualize(
+    pipeline=pipeline,
+    corpus=texts,
+    exclude_pages=[
+        "documents",
+    ],
+)
