@@ -1,8 +1,12 @@
+from typing import Optional
+
 import numpy as np
 import scipy.sparse as spr
-from sklearn.base import TransformerMixin
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import make_pipeline
 
 from blackbert.feature_extraction.text import SparseWithText
+from blackbert.importance_estimation.trees import RandomForestEstimator
 
 
 class BlackboxTopicModel(TransformerMixin):
@@ -15,10 +19,11 @@ class BlackboxTopicModel(TransformerMixin):
     model: BaseEstimator
         Model that can embed texts and output document-topic
         distributions.
-    estimator: BaseEstimator
-        Regression model with the feature_importances_ attribute,
+    estimator: BaseEstimator or None, default None
+        Component with feature_importances_ attribute,
         so that the importance of word features can be estimated.
-        The estimator has to be clonable by sklearn's clone method.
+        Default is estimating feature importances with RandomForest.
+        Note that for certain models the default option may be suboptimal.
 
     Attributes
     ----------
@@ -26,8 +31,14 @@ class BlackboxTopicModel(TransformerMixin):
         Feature importances for each topic.
     """
 
-    def __init__(self, model, estimator):
+    def __init__(
+        self,
+        model: BaseEstimator,
+        estimator: Optional[BaseEstimator] = None,
+    ):
         self.model = model
+        if estimator is None:
+            estimator = RandomForestEstimator()
         self.estimator = estimator
 
     def fit_transform(self, X: SparseWithText, y=None):
@@ -88,3 +99,26 @@ class BlackboxTopicModel(TransformerMixin):
             Document-topic importances.
         """
         return self.model.transform(X.texts)
+
+
+def box(
+    *steps: BaseEstimator, estimator: Optional[BaseEstimator] = None
+) -> BlackboxTopicModel:
+    """Utility function for creating black box topic models.
+
+    Parameters
+    ----------
+    *steps: BaseEstimator
+        List of estimators to use for embedding texts into
+        the topic space.
+    estimator: BaseEstimator or None, default None
+        Feature importance estimator algorithm.
+        Default is Random Forest Regression.
+
+    Returns
+    -------
+    BlackboxTopicModel
+        Black box model following the given steps and estimating
+    """
+    model = make_pipeline(*steps)
+    return BlackboxTopicModel(model, estimator)

@@ -1,10 +1,10 @@
-from sklearn.base import ClusterMixin, TransformerMixin
+from sklearn.base import BaseEstimator, ClusterMixin, TransformerMixin
 from sklearn.cluster import DBSCAN, KMeans, SpectralClustering
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import LabelBinarizer
 
 
-class ClusterTransformer(TransformerMixin):
+class ClusterTransformer(TransformerMixin, BaseEstimator):
     """Turns sklearn clustering algorithm into a transformer component that
     you can use in a pipeline.
     If the clustering method cannot be used for prediction

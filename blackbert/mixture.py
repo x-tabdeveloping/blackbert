@@ -4,7 +4,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.mixture import BayesianGaussianMixture, GaussianMixture
 
 
-class MixtureTransformer(TransformerMixin):
+class MixtureTransformer(TransformerMixin, BaseEstimator):
     """Turns sklearn mixture models into a transformer component that
     you can use in a pipeline.
     This means that the transform() method will return the probability
